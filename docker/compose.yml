@@ -1,32 +1,160 @@
 services:
 
-  # PostgreSQL Database (your existing config, kept exactly the same)
-  postgres:
+  # ===========================================================================
+  # Z-AXIS SPLIT: 8 PostgreSQL databases (one per continent)
+  # ===========================================================================
+
+  postgres-africa:
     image: postgres:16
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: articles
-    ports:
-      - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata-africa:/var/lib/postgresql/data
 
-  # ASP.NET Core ArticleService
-  app:
+  postgres-antarctica:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-antarctica:/var/lib/postgresql/data
+
+  postgres-asia:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-asia:/var/lib/postgresql/data
+
+  postgres-australia:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-australia:/var/lib/postgresql/data
+
+  postgres-europe:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-europe:/var/lib/postgresql/data
+
+  postgres-northamerica:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-northamerica:/var/lib/postgresql/data
+
+  postgres-southamerica:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-southamerica:/var/lib/postgresql/data
+
+  postgres-global:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: articles
+    volumes:
+      - pgdata-global:/var/lib/postgresql/data
+
+  # ===========================================================================
+  # X-AXIS SPLIT: 3 identical app instances
+  # ===========================================================================
+
+  app1:
     build:
       context: ../src/ArticleService
       dockerfile: Dockerfile
-    container_name: article_service
     restart: always
-    ports:
-      - "5000:8080"
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Africa:       "Host=postgres-africa;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Antarctica:   "Host=postgres-antarctica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Asia:         "Host=postgres-asia;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Australia:    "Host=postgres-australia;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Europe:       "Host=postgres-europe;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__NorthAmerica: "Host=postgres-northamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
     depends_on:
-      - postgres
+      - postgres-africa
+      - postgres-antarctica
+      - postgres-asia
+      - postgres-australia
+      - postgres-europe
+      - postgres-northamerica
+      - postgres-southamerica
+      - postgres-global
 
-  # Nginx reverse proxy
+  app2:
+    build:
+      context: ../src/ArticleService
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      ConnectionStrings__Africa:       "Host=postgres-africa;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Antarctica:   "Host=postgres-antarctica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Asia:         "Host=postgres-asia;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Australia:    "Host=postgres-australia;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Europe:       "Host=postgres-europe;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__NorthAmerica: "Host=postgres-northamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
+    depends_on:
+      - postgres-africa
+      - postgres-antarctica
+      - postgres-asia
+      - postgres-australia
+      - postgres-europe
+      - postgres-northamerica
+      - postgres-southamerica
+      - postgres-global
+
+  app3:
+    build:
+      context: ../src/ArticleService
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      ConnectionStrings__Africa:       "Host=postgres-africa;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Antarctica:   "Host=postgres-antarctica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Asia:         "Host=postgres-asia;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Australia:    "Host=postgres-australia;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Europe:       "Host=postgres-europe;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__NorthAmerica: "Host=postgres-northamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
+      ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
+    depends_on:
+      - postgres-africa
+      - postgres-antarctica
+      - postgres-asia
+      - postgres-australia
+      - postgres-europe
+      - postgres-northamerica
+      - postgres-southamerica
+      - postgres-global
+
+  # ===========================================================================
+  # NGINX: Load balancer (X-axis) — distributes traffic across app1/app2/app3
+  # ===========================================================================
   nginx:
     image: nginx:alpine
     container_name: nginx_proxy
@@ -36,7 +164,16 @@ services:
     volumes:
       - ./nginx:/etc/nginx/conf.d
     depends_on:
-      - app
+      - app1
+      - app2
+      - app3
 
 volumes:
-  pgdata:
+  pgdata-africa:
+  pgdata-antarctica:
+  pgdata-asia:
+  pgdata-australia:
+  pgdata-europe:
+  pgdata-northamerica:
+  pgdata-southamerica:
+  pgdata-global:
