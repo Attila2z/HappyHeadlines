@@ -1,11 +1,10 @@
-using Microsoft.EntityFrameworkCore;
-using ArticleService.Data;
+using ArticleService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<ArticleDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
+// Register the DatabaseRouter as a Singleton
+// It holds all 8 database connections and routes requests to the right one
+builder.Services.AddSingleton<DatabaseRouter>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -13,11 +12,11 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Auto-create database tables on startup
+// Auto-migrate ALL 8 databases on startup
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ArticleDbContext>();
-    db.Database.Migrate();
+    var router = scope.ServiceProvider.GetRequiredService<DatabaseRouter>();
+    router.MigrateAll();
 }
 
 app.UseSwagger();

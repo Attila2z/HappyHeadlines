@@ -38,6 +38,11 @@ namespace ArticleService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Continent")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)

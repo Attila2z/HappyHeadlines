@@ -1,89 +1,51 @@
 services:
 
   # ===========================================================================
-  # Z-AXIS SPLIT: 8 PostgreSQL databases (one per continent)
+  # ARTICLE SERVICE — X-axis split (3 instances) + Z-axis split (8 databases)
   # ===========================================================================
 
   postgres-africa:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-africa:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-africa:/var/lib/postgresql/data ]
 
   postgres-antarctica:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-antarctica:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-antarctica:/var/lib/postgresql/data ]
 
   postgres-asia:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-asia:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-asia:/var/lib/postgresql/data ]
 
   postgres-australia:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-australia:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-australia:/var/lib/postgresql/data ]
 
   postgres-europe:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-europe:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-europe:/var/lib/postgresql/data ]
 
   postgres-northamerica:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-northamerica:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-northamerica:/var/lib/postgresql/data ]
 
   postgres-southamerica:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-southamerica:/var/lib/postgresql/data
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-southamerica:/var/lib/postgresql/data ]
 
   postgres-global:
     image: postgres:16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: articles
-    volumes:
-      - pgdata-global:/var/lib/postgresql/data
-
-  # ===========================================================================
-  # X-AXIS SPLIT: 3 identical app instances
-  # ===========================================================================
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
+    volumes: [ pgdata-global:/var/lib/postgresql/data ]
 
   app1:
-    build:
-      context: ../src/ArticleService
-      dockerfile: Dockerfile
+    build: { context: ../src/ArticleService, dockerfile: Dockerfile }
     restart: always
     environment:
       ConnectionStrings__Africa:       "Host=postgres-africa;Port=5432;Database=articles;Username=postgres;Password=postgres"
@@ -94,20 +56,10 @@ services:
       ConnectionStrings__NorthAmerica: "Host=postgres-northamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
-    depends_on:
-      - postgres-africa
-      - postgres-antarctica
-      - postgres-asia
-      - postgres-australia
-      - postgres-europe
-      - postgres-northamerica
-      - postgres-southamerica
-      - postgres-global
+    depends_on: [ postgres-africa, postgres-antarctica, postgres-asia, postgres-australia, postgres-europe, postgres-northamerica, postgres-southamerica, postgres-global ]
 
   app2:
-    build:
-      context: ../src/ArticleService
-      dockerfile: Dockerfile
+    build: { context: ../src/ArticleService, dockerfile: Dockerfile }
     restart: always
     environment:
       ConnectionStrings__Africa:       "Host=postgres-africa;Port=5432;Database=articles;Username=postgres;Password=postgres"
@@ -118,20 +70,10 @@ services:
       ConnectionStrings__NorthAmerica: "Host=postgres-northamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
-    depends_on:
-      - postgres-africa
-      - postgres-antarctica
-      - postgres-asia
-      - postgres-australia
-      - postgres-europe
-      - postgres-northamerica
-      - postgres-southamerica
-      - postgres-global
+    depends_on: [ postgres-africa, postgres-antarctica, postgres-asia, postgres-australia, postgres-europe, postgres-northamerica, postgres-southamerica, postgres-global ]
 
   app3:
-    build:
-      context: ../src/ArticleService
-      dockerfile: Dockerfile
+    build: { context: ../src/ArticleService, dockerfile: Dockerfile }
     restart: always
     environment:
       ConnectionStrings__Africa:       "Host=postgres-africa;Port=5432;Database=articles;Username=postgres;Password=postgres"
@@ -142,19 +84,49 @@ services:
       ConnectionStrings__NorthAmerica: "Host=postgres-northamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
-    depends_on:
-      - postgres-africa
-      - postgres-antarctica
-      - postgres-asia
-      - postgres-australia
-      - postgres-europe
-      - postgres-northamerica
-      - postgres-southamerica
-      - postgres-global
+    depends_on: [ postgres-africa, postgres-antarctica, postgres-asia, postgres-australia, postgres-europe, postgres-northamerica, postgres-southamerica, postgres-global ]
 
   # ===========================================================================
-  # NGINX: Load balancer (X-axis) — distributes traffic across app1/app2/app3
+  # PROFANITY SERVICE + DATABASE
   # ===========================================================================
+
+  postgres-profanity:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: profanity }
+    volumes: [ pgdata-profanity:/var/lib/postgresql/data ]
+
+  profanityservice:
+    build: { context: ../src/ProfanityService, dockerfile: Dockerfile }
+    container_name: profanityservice
+    restart: always
+    depends_on: [ postgres-profanity ]
+
+  # ===========================================================================
+  # COMMENT SERVICE + DATABASE
+  # CommentService calls ProfanityService directly (no gateway)
+  # Circuit breaker handles ProfanityService being down
+  # ===========================================================================
+
+  postgres-comments:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: comments }
+    volumes: [ pgdata-comments:/var/lib/postgresql/data ]
+
+  commentservice:
+    build: { context: ../src/CommentService, dockerfile: Dockerfile }
+    container_name: commentservice
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-comments;Port=5432;Database=comments;Username=postgres;Password=postgres"
+      ProfanityService__BaseUrl: "http://profanityservice:8080"
+    depends_on: [ postgres-comments, profanityservice ]
+    ports:
+      - "5001:8080"   # Access CommentService directly for testing
+
+  # ===========================================================================
+  # NGINX — Load balancer for ArticleService
+  # ===========================================================================
+
   nginx:
     image: nginx:alpine
     container_name: nginx_proxy
@@ -163,10 +135,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx:/etc/nginx/conf.d
-    depends_on:
-      - app1
-      - app2
-      - app3
+    depends_on: [ app1, app2, app3 ]
 
 volumes:
   pgdata-africa:
@@ -177,3 +146,5 @@ volumes:
   pgdata-northamerica:
   pgdata-southamerica:
   pgdata-global:
+  pgdata-profanity:
+  pgdata-comments:
