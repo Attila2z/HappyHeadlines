@@ -1,0 +1,87 @@
+# Build artifacts
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Visual Studio and IDE files
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+.packages/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+*.log
+
+# Local user-specific settings
+appsettings.local.json
+appsettings.Development.json
+local.settings.json
+
+# Docker volumes (local development)
+pgdata-*/
+esdata/
+
+# Build output directories
+publish/
+*.publish
+
+# Test Results
+TestResults/
+*.trx
+*.coverage
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Rider
+.idea/
+*.sln.iml
+riderModule.xml
+
+# ResharperC#
+.resharper
+.resharper.user
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+*.sln.DotSettings.user
+
+# Entity Framework Core
+Migrations/*/
+!Migrations/
