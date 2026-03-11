@@ -124,6 +124,25 @@ services:
       - "5001:8080"   # Access CommentService directly for testing
 
   # ===========================================================================
+  # DRAFT SERVICE + DATABASE
+  # ===========================================================================
+
+  postgres-drafts:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: drafts }
+    volumes: [ pgdata-drafts:/var/lib/postgresql/data ]
+
+  draftservice:
+    build: { context: ../src/DraftService, dockerfile: Dockerfile }
+    container_name: draftservice
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-drafts;Port=5432;Database=drafts;Username=postgres;Password=postgres"
+    depends_on: [ postgres-drafts ]
+    ports:
+      - "5002:8080"   # Access DraftService directly for testing
+
+  # ===========================================================================
   # NGINX — Load balancer for ArticleService
   # ===========================================================================
 
@@ -137,6 +156,63 @@ services:
       - ./nginx:/etc/nginx/conf.d
     depends_on: [ app1, app2, app3 ]
 
+  # ===========================================================================
+  # ELK STACK — Centralized Logging & Monitoring Infrastructure
+  # ===========================================================================
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    restart: always
+    ports:
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    environment:
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    restart: always
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  log-cleanup:
+    image: alpine:latest
+    container_name: log-cleanup
+    restart: always
+    depends_on:
+      - elasticsearch
+    entrypoint: |
+      /bin/sh -c "
+      apk add --no-cache dcron curl &&
+      echo '0 2 * * * curl -X DELETE http://elasticsearch:9200/logs-\$$(date -d 7 days ago +\\%Y.\\%m.\\%d) 2>/dev/null || true' | crontab - &&
+      crond -f
+      "
+
 volumes:
   pgdata-africa:
   pgdata-antarctica:
@@ -148,3 +224,5 @@ volumes:
   pgdata-global:
   pgdata-profanity:
   pgdata-comments:
+  pgdata-drafts:
+  esdata:

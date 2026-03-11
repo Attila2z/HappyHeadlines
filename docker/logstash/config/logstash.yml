@@ -1,0 +1,9 @@
+---
+# Logstash configuration
+http.host: "0.0.0.0"
+http.port: 9600
+log.level: info
+
+# Monitoring
+xpack.monitoring.enabled: false
+xpack.monitoring.collection.enabled: false
