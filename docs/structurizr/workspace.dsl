@@ -91,6 +91,10 @@ workspace "Happy Headlines" "C1 + C2 diagrams" {
       kibana = container "Kibana" "Dashboard for visualizing logs, metrics, and tracing data." "Dashboard" {
         tags "Infrastructure"
       }
+
+      logCleanup = container "LogCleanupService" "Automatically deletes logs older than 7 days via scheduled cron jobs." "Scheduled Job" {
+        tags "Infrastructure"
+      }
     }
 
     // People -> system (C1)
@@ -147,6 +151,9 @@ workspace "Happy Headlines" "C1 + C2 diagrams" {
 
     // Kibana and Elasticsearch
     kibana -> elasticsearch "Query logs and metrics" "HTTP/REST"
+
+    // LogCleanup and Elasticsearch
+    logCleanup -> elasticsearch "Delete old logs (older than 7 days)" "HTTP/REST"
 
     // Publishers can monitor system health via Kibana
     publisher -> kibana "Monitor system health and performance" "HTTPS"
