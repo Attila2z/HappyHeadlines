@@ -51,7 +51,7 @@ Implement automatic log cleanup to prevent unbounded disk usage. Logs older than
 
 **Services:** ArticleService, CommentService, ProfanityService, DraftService
 
-**Cleanup:** Automatic deletion of logs older than 7 days (runs daily at 2 AM)
+**Cleanup:** Automatic deletion of logs older than 7 days (runs daily at 02:00)
 
 ## Testing
 

@@ -1,11 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using DraftService.Data;
-using Shared.Logging;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Serilog for centralized logging to ELK Stack
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration
@@ -22,7 +20,6 @@ builder.Host.UseSerilog((context, configuration) =>
         );
 });
 
-// Register database
 builder.Services.AddDbContext<DraftDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")
         ?? "Host=localhost;Port=5432;Database=drafts;Username=postgres;Password=postgres")
@@ -34,7 +31,6 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Auto-migrate on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DraftDbContext>();

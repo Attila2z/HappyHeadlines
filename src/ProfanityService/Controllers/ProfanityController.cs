@@ -9,10 +9,12 @@ namespace ProfanityService.Controllers
     public class ProfanityController : ControllerBase
     {
         private readonly ProfanityDbContext _context;
+        private readonly ILogger<ProfanityController> _logger;
 
-        public ProfanityController(ProfanityDbContext context)
+        public ProfanityController(ProfanityDbContext context, ILogger<ProfanityController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // -----------------------------------------------------------------------
@@ -51,6 +53,11 @@ namespace ProfanityService.Controllers
                 }
             }
 
+            if (hadProfanity)
+                _logger.LogInformation("Text filtered successfully, profanity detected");
+            else
+                _logger.LogInformation("Text filtered successfully, no profanity detected");
+
             return Ok(new FilterResponse
             {
                 OriginalText = request.Text,
@@ -84,6 +91,8 @@ namespace ProfanityService.Controllers
 
             _context.ProfanityWords.Add(word);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Profanity word added with id={id}, word={word}", word.Id, word.Word);
             return CreatedAtAction(nameof(GetWords), word);
         }
 
@@ -95,10 +104,15 @@ namespace ProfanityService.Controllers
         {
             var word = await _context.ProfanityWords.FindAsync(id);
             if (word == null)
+            {
+                _logger.LogWarning("Profanity word with id={id} not found for deletion", id);
                 return NotFound($"Word with id={id} not found.");
+            }
 
             _context.ProfanityWords.Remove(word);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Profanity word deleted with id={id}, word={word}", id, word.Word);
             return NoContent();
         }
     }

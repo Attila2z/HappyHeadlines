@@ -10,10 +10,12 @@ namespace ArticleService.Controllers
     public class ArticlesController : ControllerBase
     {
         private readonly DatabaseRouter _router;
+        private readonly ILogger<ArticlesController> _logger;
 
-        public ArticlesController(DatabaseRouter router)
+        public ArticlesController(DatabaseRouter router, ILogger<ArticlesController> logger)
         {
             _router = router;
+            _logger = logger;
         }
 
         // -----------------------------------------------------------------------
@@ -53,8 +55,8 @@ namespace ArticleService.Controllers
                 context.Articles.Add(article);
                 await context.SaveChangesAsync();
 
-                // Return the article from the first database saved
                 savedArticle ??= article;
+                _logger.LogInformation("Article created in {continent} database with id={id}", request.Continent, article.Id);
             }
 
             return CreatedAtAction(nameof(GetArticle),
@@ -94,8 +96,12 @@ namespace ArticleService.Controllers
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)
+            {
+                _logger.LogWarning("Article with id={id} not found in {continent} database", id, continent);
                 return NotFound($"Article with id={id} not found in {continent} database.");
+            }
 
+            _logger.LogInformation("Article retrieved from {continent} database with id={id}", continent, id);
             return Ok(article);
         }
 
@@ -127,6 +133,7 @@ namespace ArticleService.Controllers
 
             await context.SaveChangesAsync();
 
+            _logger.LogInformation("Article updated in {continent} database with id={id}", continent, id);
             return Ok(article);
         }
 
@@ -148,6 +155,7 @@ namespace ArticleService.Controllers
             context.Articles.Remove(article);
             await context.SaveChangesAsync();
 
+            _logger.LogInformation("Article deleted from {continent} database with id={id}", continent, id);
             return NoContent();
         }
     }
