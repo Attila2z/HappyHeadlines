@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio Code
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+
+# dotnet
+*.dll
+*.exe
+*.pdb
+
+# Docker volumes (never commit database data)
+postgres_data/
+
+# Environment/secrets (never commit passwords!)
+.env
+appsettings.Production.json
+
+# OS files
+.DS_Store
+Thumbs.db

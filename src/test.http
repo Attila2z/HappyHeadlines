@@ -1,0 +1,32 @@
+### 1. Create an article
+POST http://localhost:5000/articles
+Content-Type: application/json
+
+{ "title": "Hello World", "content": "My first article", "author": "Alice" }
+
+### 2. Get ALL articles
+GET http://localhost:5000/articles
+
+### 3. Get ONE article
+GET http://localhost:5000/articles/1
+
+### 4. Update an article
+PUT http://localhost:5000/articles/1
+Content-Type: application/json
+
+{ "title": "Updated Title", "content": "Updated content", "author": "Alice" }
+
+### 5. Delete an article
+DELETE http://localhost:5000/articles/1
+```
+
+---
+
+## Step 4 — This is what you'll see
+
+After pasting, a small grey **"Send Request"** link will appear **above every `###` block**, like this:
+```
+Send Request          ← 👈 click this!
+### 1. Create an article
+POST http://localhost:5000/articles
+...
