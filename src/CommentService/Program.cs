@@ -1,8 +1,26 @@
 using Microsoft.EntityFrameworkCore;
 using CommentService.Data;
 using CommentService.Services;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .MinimumLevel.Debug()
+        .Enrich.WithProperty("service", "CommentService")
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .WriteTo.Console(new CompactJsonFormatter())
+        .WriteTo.Http(
+            "http://logstash:5000",
+            queueLimitBytes: 1024 * 1024,
+            textFormatter: new CompactJsonFormatter(),
+            period: TimeSpan.FromSeconds(5)
+        );
+});
 
 // Register database
 builder.Services.AddDbContext<CommentDbContext>(options =>
@@ -25,11 +43,11 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Auto-migrate on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CommentDbContext>();
     db.Database.Migrate();
+    app.Logger.LogInformation("CommentDatabase migrated successfully");
 }
 
 app.UseSwagger();

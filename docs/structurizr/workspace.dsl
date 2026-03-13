@@ -8,6 +8,10 @@ workspace "Happy Headlines" "C1 + C2 diagrams" {
       tags "External"
     }
 
+    monitoringSystem = softwareSystem "Monitoring & Observability System" "Centralized logging, metrics, and tracing infrastructure." {
+      tags "Infrastructure"
+    }
+
     hh = softwareSystem "Happy Headlines" "Positive news website and newsletter platform." {
 
       webapp = container "Webapp" "Internal editorial UI for publishers." "Web Application" {
@@ -73,12 +77,31 @@ workspace "Happy Headlines" "C1 + C2 diagrams" {
       subscriberDb = container "SubscriberDatabase" "Stores subscriber information." "Database" {
         tags "Database"
       }
+
+      // ===== MONITORING & OBSERVABILITY CONTAINERS =====
+
+      elasticsearch = container "Elasticsearch" "Search and analytics engine for centralized log storage." "Search Engine" {
+        tags "Infrastructure"
+      }
+
+      logstash = container "Logstash" "Ingests, processes, and forwards logs from all services." "Log Processor" {
+        tags "Infrastructure"
+      }
+
+      kibana = container "Kibana" "Dashboard for visualizing logs, metrics, and tracing data." "Dashboard" {
+        tags "Infrastructure"
+      }
+
+      logCleanup = container "LogCleanupService" "Automatically deletes logs older than 7 days via scheduled cron jobs." "Scheduled Job" {
+        tags "Infrastructure"
+      }
     }
 
     // People -> system (C1)
     publisher -> hh "Uses the platform" "Web Browser (HTTPS)"
     reader    -> hh "Uses the platform" "Web Browser (HTTPS)"
     hh -> emailProvider "Sends newsletters" "SMTP"
+    hh -> monitoringSystem "Sends logs and traces" "HTTP/JSON"
 
     // People -> UIs (C2)
     publisher -> webapp "Drafts/reviews/publishes" "HTTPS"
@@ -112,22 +135,46 @@ workspace "Happy Headlines" "C1 + C2 diagrams" {
     newsletterService -> articleService "Fetch recent articles" "HTTPS/REST"
     newsletterService -> subscriberService "Fetch active subscribers" "HTTPS/REST"
     newsletterService -> emailProvider "Send newsletter" "SMTP"
+
+    // ===== OBSERVABILITY RELATIONSHIPS =====
+    // All services send logs to Logstash
+    draftService -> logstash "Send logs" "HTTP/JSON"
+    publisherService -> logstash "Send logs" "HTTP/JSON"
+    profanityService -> logstash "Send logs" "HTTP/JSON"
+    commentService -> logstash "Send logs" "HTTP/JSON"
+    articleService -> logstash "Send logs" "HTTP/JSON"
+    subscriberService -> logstash "Send logs" "HTTP/JSON"
+    newsletterService -> logstash "Send logs" "HTTP/JSON"
+
+    // Logstash and Elasticsearch
+    logstash -> elasticsearch "Store processed logs" "HTTP/REST"
+
+    // Kibana and Elasticsearch
+    kibana -> elasticsearch "Query logs and metrics" "HTTP/REST"
+
+    // LogCleanup and Elasticsearch
+    logCleanup -> elasticsearch "Delete old logs (older than 7 days)" "HTTP/REST"
+
+    // Publishers can monitor system health via Kibana
+    publisher -> kibana "Monitor system health and performance" "HTTPS"
   }
 
   views {
-    systemContext hh "C1" "System Context" {
+    systemContext hh "C1" "System Context - with Monitoring" {
       include publisher
       include reader
       include hh
       include emailProvider
+      include monitoringSystem
       autolayout lr
     }
 
-    container hh "C2" "Container view" {
+    container hh "C2" "Container view with Monitoring & Observability" {
       include *
       include publisher
       include reader
       include emailProvider
+      include monitoringSystem
       autolayout lr
     }
 
@@ -188,6 +235,13 @@ workspace "Happy Headlines" "C1 + C2 diagrams" {
         background #8e7cc3
         color #ffffff
         stroke #674ea7
+        strokeWidth 2
+      }
+
+      element "Infrastructure" {
+        background #ff9900
+        color #000000
+        stroke #cc7700
         strokeWidth 2
       }
 

@@ -12,11 +12,13 @@ namespace CommentService.Controllers
     {
         private readonly CommentDbContext _context;
         private readonly ProfanityClient _profanityClient;
+        private readonly ILogger<CommentsController> _logger;
 
-        public CommentsController(CommentDbContext context, ProfanityClient profanityClient)
+        public CommentsController(CommentDbContext context, ProfanityClient profanityClient, ILogger<CommentsController> logger)
         {
             _context = context;
             _profanityClient = profanityClient;
+            _logger = logger;
         }
 
         // -----------------------------------------------------------------------
@@ -40,9 +42,7 @@ namespace CommentService.Controllers
             {
                 ArticleId = request.ArticleId,
                 Author    = request.Author,
-                // If filtering worked use filtered text, otherwise use original
                 Content   = filteredContent ?? request.Content,
-                // If filtering failed mark as PendingReview so it can be reviewed later
                 Status    = filteredContent != null
                     ? CommentStatus.Approved
                     : CommentStatus.PendingReview
@@ -50,6 +50,11 @@ namespace CommentService.Controllers
 
             _context.Comments.Add(comment);
             await _context.SaveChangesAsync();
+
+            if (filteredContent != null)
+                _logger.LogInformation("Comment created and approved with id={id}", comment.Id);
+            else
+                _logger.LogWarning("Comment created with status=PendingReview due to profanity service unavailable, id={id}", comment.Id);
 
             return CreatedAtAction(nameof(GetComment), new { id = comment.Id }, comment);
         }
@@ -85,7 +90,11 @@ namespace CommentService.Controllers
         {
             var comment = await _context.Comments.FindAsync(id);
             if (comment == null)
+            {
+                _logger.LogWarning("Comment with id={id} was not found", id);
                 return NotFound($"Comment with id={id} was not found.");
+            }
+            _logger.LogInformation("Comment retrieved with id={id}", id);
             return Ok(comment);
         }
 
@@ -110,6 +119,12 @@ namespace CommentService.Controllers
                 : CommentStatus.PendingReview;
 
             await _context.SaveChangesAsync();
+
+            if (filteredContent != null)
+                _logger.LogInformation("Comment updated and approved with id={id}", id);
+            else
+                _logger.LogWarning("Comment updated with status=PendingReview due to profanity service unavailable, id={id}", id);
+
             return Ok(comment);
         }
 
@@ -121,10 +136,15 @@ namespace CommentService.Controllers
         {
             var comment = await _context.Comments.FindAsync(id);
             if (comment == null)
+            {
+                _logger.LogWarning("Comment with id={id} was not found for deletion", id);
                 return NotFound($"Comment with id={id} was not found.");
+            }
 
             _context.Comments.Remove(comment);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Comment deleted with id={id}", id);
             return NoContent();
         }
     }
