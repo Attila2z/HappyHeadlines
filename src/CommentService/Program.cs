@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using CommentService.Data;
 using CommentService.Services;
+using Prometheus;
 using Serilog;
 using Serilog.Formatting.Compact;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +39,15 @@ builder.Services.AddHttpClient<ProfanityClient>(client =>
     );
 });
 
+// Redis connection for the comment cache
+var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "redis-comment:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect(redisConn));
+
+// Comment cache (LRU, 30 articles) and Prometheus metrics
+builder.Services.AddSingleton<CommentCacheService>();
+builder.Services.AddSingleton<CommentCacheMetrics>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -52,5 +63,10 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Expose /metrics for Prometheus scraping
+app.UseMetricServer();
+app.UseHttpMetrics();
+
 app.MapControllers();
 app.Run();
