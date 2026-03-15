@@ -25,6 +25,8 @@ namespace ArticleService.Models
         [Required]
         [MaxLength(50)]
         public string Continent { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
     // DTO — used for Create and Update requests (no Id from the client)
