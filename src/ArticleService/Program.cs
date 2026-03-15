@@ -1,6 +1,8 @@
 using ArticleService.Services;
+using Prometheus;
 using Serilog;
 using Serilog.Formatting.Compact;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +26,17 @@ builder.Host.UseSerilog((context, configuration) =>
 // It holds all 8 database connections and routes requests to the right one
 builder.Services.AddSingleton<DatabaseRouter>();
 
+// Redis connection for the article cache
+var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "redis-article:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect(redisConn));
+
+// Prometheus metrics counters (singleton so they accumulate across requests)
+builder.Services.AddSingleton<ArticleCacheMetrics>();
+
+// Background service that pre-fills the cache every 10 minutes
+builder.Services.AddHostedService<ArticleCachePreloader>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -39,6 +52,10 @@ using (var scope = app.Services.CreateScope())
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// Expose /metrics for Prometheus scraping
+app.UseMetricServer();
+app.UseHttpMetrics();
 
 app.MapControllers();
 

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ArticleService.Models;
 using ArticleService.Services;
+using StackExchange.Redis;
+using System.Text.Json;
 
 namespace ArticleService.Controllers
 {
@@ -10,12 +12,20 @@ namespace ArticleService.Controllers
     public class ArticlesController : ControllerBase
     {
         private readonly DatabaseRouter _router;
+        private readonly IConnectionMultiplexer _redis;
+        private readonly ArticleCacheMetrics _metrics;
         private readonly ILogger<ArticlesController> _logger;
 
-        public ArticlesController(DatabaseRouter router, ILogger<ArticlesController> logger)
+        public ArticlesController(
+            DatabaseRouter router,
+            IConnectionMultiplexer redis,
+            ArticleCacheMetrics metrics,
+            ILogger<ArticlesController> logger)
         {
-            _router = router;
-            _logger = logger;
+            _router  = router;
+            _redis   = redis;
+            _metrics = metrics;
+            _logger  = logger;
         }
 
         // -----------------------------------------------------------------------
@@ -84,7 +94,7 @@ namespace ArticleService.Controllers
 
         // -----------------------------------------------------------------------
         // READ ONE — GET /articles/{continent}/{id}
-        // Looks in the specific continent's database
+        // Checks the Redis cache first; falls back to the database on a miss.
         // -----------------------------------------------------------------------
         [HttpGet("{continent}/{id}")]
         public async Task<IActionResult> GetArticle(string continent, int id)
@@ -92,6 +102,31 @@ namespace ArticleService.Controllers
             if (!Continents.All.Contains(continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
+            // --- Cache lookup ---
+            try
+            {
+                var db  = _redis.GetDatabase();
+                var key = $"article-cache:{continent}:{id}";
+                var raw = await db.StringGetAsync(key);
+
+                if (raw.HasValue)
+                {
+                    _metrics.Hits.Inc();
+                    _logger.LogDebug("ArticleCache HIT for {continent}/{id}", continent, id);
+                    var cached = JsonSerializer.Deserialize<Article>((string)raw!);
+                    return Ok(cached);
+                }
+
+                _metrics.Misses.Inc();
+                _logger.LogDebug("ArticleCache MISS for {continent}/{id}", continent, id);
+            }
+            catch (Exception ex)
+            {
+                // Redis unavailable — fall through to database
+                _logger.LogWarning(ex, "ArticleCache unavailable, falling back to database");
+            }
+
+            // --- Database fallback ---
             var context = _router.GetContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
