@@ -28,11 +28,6 @@ namespace ArticleService.Controllers
             _logger  = logger;
         }
 
-        // -----------------------------------------------------------------------
-        // CREATE — POST /articles
-        // Saves to the correct database based on Continent.
-        // If Continent = "Global", saves to ALL 8 databases.
-        // -----------------------------------------------------------------------
         [HttpPost]
         public async Task<IActionResult> CreateArticle([FromBody] ArticleRequest request)
         {
@@ -47,7 +42,6 @@ namespace ArticleService.Controllers
             if (!Continents.All.Contains(request.Continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            // Get the databases to save to (1 or all 8 if Global)
             var contexts = _router.GetContextsForSaving(request.Continent);
 
             Article? savedArticle = null;
@@ -74,10 +68,6 @@ namespace ArticleService.Controllers
                 savedArticle);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ALL — GET /articles
-        // Fetches from ALL 8 databases and merges the results
-        // -----------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> GetAllArticles()
         {
@@ -92,17 +82,12 @@ namespace ArticleService.Controllers
             return Ok(allArticles);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ONE — GET /articles/{continent}/{id}
-        // Checks the Redis cache first; falls back to the database on a miss.
-        // -----------------------------------------------------------------------
         [HttpGet("{continent}/{id}")]
         public async Task<IActionResult> GetArticle(string continent, int id)
         {
             if (!Continents.All.Contains(continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            // --- Cache lookup ---
             try
             {
                 var db  = _redis.GetDatabase();
@@ -122,11 +107,9 @@ namespace ArticleService.Controllers
             }
             catch (Exception ex)
             {
-                // Redis unavailable — fall through to database
                 _logger.LogWarning(ex, "ArticleCache unavailable, falling back to database");
             }
 
-            // --- Database fallback ---
             var context = _router.GetContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
@@ -140,9 +123,6 @@ namespace ArticleService.Controllers
             return Ok(article);
         }
 
-        // -----------------------------------------------------------------------
-        // UPDATE — PUT /articles/{continent}/{id}
-        // -----------------------------------------------------------------------
         [HttpPut("{continent}/{id}")]
         public async Task<IActionResult> UpdateArticle(string continent, int id, [FromBody] ArticleRequest request)
         {
@@ -172,9 +152,6 @@ namespace ArticleService.Controllers
             return Ok(article);
         }
 
-        // -----------------------------------------------------------------------
-        // DELETE — DELETE /articles/{continent}/{id}
-        // -----------------------------------------------------------------------
         [HttpDelete("{continent}/{id}")]
         public async Task<IActionResult> DeleteArticle(string continent, int id)
         {

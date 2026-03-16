@@ -26,7 +26,6 @@ namespace ArticleService.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // Give the application a moment to finish startup before first run.
             await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)

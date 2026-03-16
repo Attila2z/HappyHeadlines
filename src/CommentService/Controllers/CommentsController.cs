@@ -30,13 +30,6 @@ namespace CommentService.Controllers
             _logger          = logger;
         }
 
-        // -----------------------------------------------------------------------
-        // CREATE — POST /comments
-        // 1. Send content to ProfanityService for filtering
-        // 2. If ProfanityService is UP  → save filtered content as "Approved"
-        // 3. If ProfanityService is DOWN → save original content as "PendingReview"
-        // After saving, invalidate the cache for that article.
-        // -----------------------------------------------------------------------
         [HttpPost]
         public async Task<IActionResult> CreateComment([FromBody] CommentRequest request)
         {
@@ -61,7 +54,6 @@ namespace CommentService.Controllers
             _context.Comments.Add(comment);
             await _context.SaveChangesAsync();
 
-            // Invalidate cached comment list for this article
             try { await _cache.InvalidateAsync(request.ArticleId); }
             catch (Exception ex) { _logger.LogWarning(ex, "CommentCache invalidation failed for articleId={id}", request.ArticleId); }
 
@@ -73,9 +65,6 @@ namespace CommentService.Controllers
             return CreatedAtAction(nameof(GetComment), new { id = comment.Id }, comment);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ALL — GET /comments
-        // -----------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> GetAllComments()
         {
@@ -83,14 +72,9 @@ namespace CommentService.Controllers
             return Ok(comments);
         }
 
-        // -----------------------------------------------------------------------
-        // READ BY ARTICLE — GET /comments/article/{articleId}
-        // Checks the Redis LRU cache first; falls back to the database on miss.
-        // -----------------------------------------------------------------------
         [HttpGet("article/{articleId}")]
         public async Task<IActionResult> GetCommentsByArticle(int articleId)
         {
-            // --- Cache lookup ---
             try
             {
                 var cached = await _cache.GetAsync(articleId);
@@ -106,25 +90,19 @@ namespace CommentService.Controllers
             }
             catch (Exception ex)
             {
-                // Redis unavailable — fall through to database
                 _logger.LogWarning(ex, "CommentCache unavailable, falling back to database");
             }
 
-            // --- Database fallback ---
             var comments = await _context.Comments
                 .Where(c => c.ArticleId == articleId)
                 .ToListAsync();
 
-            // Populate the cache (best-effort)
             try { await _cache.SetAsync(articleId, comments); }
             catch (Exception ex) { _logger.LogWarning(ex, "CommentCache set failed for articleId={id}", articleId); }
 
             return Ok(comments);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ONE — GET /comments/{id}
-        // -----------------------------------------------------------------------
         [HttpGet("{id}")]
         public async Task<IActionResult> GetComment(int id)
         {
@@ -138,9 +116,6 @@ namespace CommentService.Controllers
             return Ok(comment);
         }
 
-        // -----------------------------------------------------------------------
-        // UPDATE — PUT /comments/{id}
-        // -----------------------------------------------------------------------
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateComment(int id, [FromBody] CommentRequest request)
         {
@@ -171,9 +146,6 @@ namespace CommentService.Controllers
             return Ok(comment);
         }
 
-        // -----------------------------------------------------------------------
-        // DELETE — DELETE /comments/{id}
-        // -----------------------------------------------------------------------
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteComment(int id)
         {
