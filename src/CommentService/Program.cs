@@ -2,9 +2,28 @@ using Microsoft.EntityFrameworkCore;
 using CommentService.Data;
 using CommentService.Services;
 using Prometheus;
+// using Serilog;
+// using Serilog.Formatting.Compact;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Centralized logging (Phase 4) — Commented out for compulsory assignment
+// builder.Host.UseSerilog((context, configuration) =>
+// {
+//     configuration
+//         .MinimumLevel.Debug()
+//         .Enrich.WithProperty("service", "CommentService")
+//         .Enrich.FromLogContext()
+//         .Enrich.WithMachineName()
+//         .WriteTo.Console(new CompactJsonFormatter())
+//         .WriteTo.Http(
+//             "http://logstash:5000",
+//             queueLimitBytes: 1024 * 1024,
+//             textFormatter: new CompactJsonFormatter(),
+//             period: TimeSpan.FromSeconds(5)
+//         );
+// });
 
 builder.Services.AddDbContext<CommentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))

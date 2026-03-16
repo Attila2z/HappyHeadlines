@@ -1,25 +1,26 @@
 using Microsoft.EntityFrameworkCore;
 using ProfanityService.Data;
-using Serilog;
-using Serilog.Formatting.Compact;
+// using Serilog;
+// using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, configuration) =>
-{
-    configuration
-        .MinimumLevel.Debug()
-        .Enrich.WithProperty("service", "ProfanityService")
-        .Enrich.FromLogContext()
-        .Enrich.WithMachineName()
-        .WriteTo.Console(new CompactJsonFormatter())
-        .WriteTo.Http(
-            "http://logstash:5000",
-            queueLimitBytes: 1024 * 1024,
-            textFormatter: new CompactJsonFormatter(),
-            period: TimeSpan.FromSeconds(5)
-        );
-});
+// Centralized logging (Phase 4) — Commented out for compulsory assignment
+// builder.Host.UseSerilog((context, configuration) =>
+// {
+//     configuration
+//         .MinimumLevel.Debug()
+//         .Enrich.WithProperty("service", "ProfanityService")
+//         .Enrich.FromLogContext()
+//         .Enrich.WithMachineName()
+//         .WriteTo.Console(new CompactJsonFormatter())
+//         .WriteTo.Http(
+//             "http://logstash:5000",
+//             queueLimitBytes: 1024 * 1024,
+//             textFormatter: new CompactJsonFormatter(),
+//             period: TimeSpan.FromSeconds(5)
+//         );
+// });
 
 builder.Services.AddDbContext<ProfanityDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
