@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using ProfanityService.Data;
 using Serilog;
 using Serilog.Formatting.Compact;
@@ -28,6 +30,21 @@ builder.Services.AddDbContext<ProfanityDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("ProfanityService"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddZipkinExporter(opt =>
+            {
+                opt.Endpoint = new Uri(
+                    builder.Configuration["Zipkin:Endpoint"]
+                        ?? "http://zipkin:9411/api/v2/spans");
+            });
+    });
 
 var app = builder.Build();
 

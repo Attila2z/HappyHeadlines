@@ -1,17 +1,3 @@
-// =============================================================================
-// Services/DatabaseRouter.cs
-// =============================================================================
-// This is the KEY class for the Z-axis split.
-//
-// WHAT IT DOES:
-//   - Holds 8 database connections (one per continent)
-//   - GetContextFor(continent)  → returns the right database for that continent
-//   - GetAllContexts()          → returns all 8 databases (used for GET /articles)
-//   - GetContextsFor(continent) → returns correct databases for saving:
-//                                  if Global → returns ALL 8
-//                                  otherwise → returns just that continent's DB
-// =============================================================================
-
 using Microsoft.EntityFrameworkCore;
 using ArticleService.Data;
 using ArticleService.Models;
@@ -20,15 +6,12 @@ namespace ArticleService.Services
 {
     public class DatabaseRouter
     {
-        // One DbContext per continent, stored in a dictionary
-        // Key = continent name, Value = database context
-        private readonly Dictionary<string, ArticleDbContext> _contexts;
+        private readonly Dictionary<string, DbContextOptions<ArticleDbContext>> _options;
 
         public DatabaseRouter(IConfiguration config)
         {
-            _contexts = new Dictionary<string, ArticleDbContext>();
+            _options = new Dictionary<string, DbContextOptions<ArticleDbContext>>();
 
-            // Create a DbContext for each continent using its connection string
             foreach (var continent in Continents.All)
             {
                 var connectionString = config.GetConnectionString(continent);
@@ -40,52 +23,33 @@ namespace ArticleService.Services
                     .UseNpgsql(connectionString)
                     .Options;
 
-                _contexts[continent] = new ArticleDbContext(options);
+                _options[continent] = options;
             }
         }
 
-        // -----------------------------------------------------------------------
-        // Returns the single database for a specific continent
-        // e.g. GetContextFor("Europe") → returns the Europe DB
-        // -----------------------------------------------------------------------
-        public ArticleDbContext GetContextFor(string continent)
+        public ArticleDbContext CreateContextFor(string continent)
         {
-            if (!_contexts.ContainsKey(continent))
+            if (!_options.ContainsKey(continent))
                 throw new ArgumentException($"Unknown continent: {continent}");
 
-            return _contexts[continent];
+            return new ArticleDbContext(_options[continent]);
         }
 
-        // -----------------------------------------------------------------------
-        // Returns ALL 8 databases
-        // Used by GET /articles to fetch from every database
-        // -----------------------------------------------------------------------
-        public List<ArticleDbContext> GetAllContexts()
-        {
-            return _contexts.Values.ToList();
-        }
+        public IReadOnlyList<string> GetContinents() => _options.Keys.ToList();
 
-        // -----------------------------------------------------------------------
-        // Returns the databases WHERE an article should be SAVED
-        // If continent = "Global" → save to ALL 8 databases
-        // Otherwise              → save to just that continent's database
-        // -----------------------------------------------------------------------
-        public List<ArticleDbContext> GetContextsForSaving(string continent)
+        public List<ArticleDbContext> CreateContextsForSaving(string continent)
         {
             if (continent == Continents.Global)
-                return GetAllContexts(); // Global = save everywhere
+                return _options.Values.Select(opts => new ArticleDbContext(opts)).ToList();
 
-            return new List<ArticleDbContext> { GetContextFor(continent) };
+            return new List<ArticleDbContext> { CreateContextFor(continent) };
         }
 
-        // -----------------------------------------------------------------------
-        // Ensures all 8 databases have their tables created
-        // Called once on startup from Program.cs
-        // -----------------------------------------------------------------------
         public void MigrateAll()
         {
-            foreach (var (continent, context) in _contexts)
+            foreach (var (_, opts) in _options)
             {
+                using var context = new ArticleDbContext(opts);
                 context.Database.Migrate();
             }
         }

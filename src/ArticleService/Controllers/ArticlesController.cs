@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ArticleService.Models;
 using ArticleService.Services;
+using StackExchange.Redis;
+using System.Text.Json;
 
 namespace ArticleService.Controllers
 {
@@ -10,19 +12,22 @@ namespace ArticleService.Controllers
     public class ArticlesController : ControllerBase
     {
         private readonly DatabaseRouter _router;
+        private readonly IConnectionMultiplexer _redis;
+        private readonly ArticleCacheMetrics _metrics;
         private readonly ILogger<ArticlesController> _logger;
 
-        public ArticlesController(DatabaseRouter router, ILogger<ArticlesController> logger)
+        public ArticlesController(
+            DatabaseRouter router,
+            IConnectionMultiplexer redis,
+            ArticleCacheMetrics metrics,
+            ILogger<ArticlesController> logger)
         {
-            _router = router;
-            _logger = logger;
+            _router  = router;
+            _redis   = redis;
+            _metrics = metrics;
+            _logger  = logger;
         }
 
-        // -----------------------------------------------------------------------
-        // CREATE — POST /articles
-        // Saves to the correct database based on Continent.
-        // If Continent = "Global", saves to ALL 8 databases.
-        // -----------------------------------------------------------------------
         [HttpPost]
         public async Task<IActionResult> CreateArticle([FromBody] ArticleRequest request)
         {
@@ -37,13 +42,14 @@ namespace ArticleService.Controllers
             if (!Continents.All.Contains(request.Continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            // Get the databases to save to (1 or all 8 if Global)
-            var contexts = _router.GetContextsForSaving(request.Continent);
+            var contexts = _router.CreateContextsForSaving(request.Continent);
 
             Article? savedArticle = null;
 
             foreach (var context in contexts)
             {
+                using var ctx = context;
+
                 var article = new Article
                 {
                     Title     = request.Title,
@@ -52,8 +58,8 @@ namespace ArticleService.Controllers
                     Continent = request.Continent
                 };
 
-                context.Articles.Add(article);
-                await context.SaveChangesAsync();
+                ctx.Articles.Add(article);
+                await ctx.SaveChangesAsync();
 
                 savedArticle ??= article;
                 _logger.LogInformation("Article created in {continent} database with id={id}", request.Continent, article.Id);
@@ -64,17 +70,14 @@ namespace ArticleService.Controllers
                 savedArticle);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ALL — GET /articles
-        // Fetches from ALL 8 databases and merges the results
-        // -----------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> GetAllArticles()
         {
             var allArticles = new List<Article>();
 
-            foreach (var context in _router.GetAllContexts())
+            foreach (var continent in _router.GetContinents())
             {
+                using var context = _router.CreateContextFor(continent);
                 var articles = await context.Articles.ToListAsync();
                 allArticles.AddRange(articles);
             }
@@ -82,17 +85,35 @@ namespace ArticleService.Controllers
             return Ok(allArticles);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ONE — GET /articles/{continent}/{id}
-        // Looks in the specific continent's database
-        // -----------------------------------------------------------------------
         [HttpGet("{continent}/{id}")]
         public async Task<IActionResult> GetArticle(string continent, int id)
         {
             if (!Continents.All.Contains(continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            var context = _router.GetContextFor(continent);
+            try
+            {
+                var db  = _redis.GetDatabase();
+                var key = $"article-cache:{continent}:{id}";
+                var raw = await db.StringGetAsync(key);
+
+                if (raw.HasValue)
+                {
+                    _metrics.Hits.Inc();
+                    _logger.LogDebug("ArticleCache HIT for {continent}/{id}", continent, id);
+                    var cached = JsonSerializer.Deserialize<Article>((string)raw!);
+                    return Ok(cached);
+                }
+
+                _metrics.Misses.Inc();
+                _logger.LogDebug("ArticleCache MISS for {continent}/{id}", continent, id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ArticleCache unavailable, falling back to database");
+            }
+
+            using var context = _router.CreateContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)
@@ -105,9 +126,6 @@ namespace ArticleService.Controllers
             return Ok(article);
         }
 
-        // -----------------------------------------------------------------------
-        // UPDATE — PUT /articles/{continent}/{id}
-        // -----------------------------------------------------------------------
         [HttpPut("{continent}/{id}")]
         public async Task<IActionResult> UpdateArticle(string continent, int id, [FromBody] ArticleRequest request)
         {
@@ -121,7 +139,7 @@ namespace ArticleService.Controllers
             if (string.IsNullOrWhiteSpace(request.Author))
                 return BadRequest("Field 'author' is required.");
 
-            var context = _router.GetContextFor(continent);
+            using var context = _router.CreateContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)
@@ -137,16 +155,13 @@ namespace ArticleService.Controllers
             return Ok(article);
         }
 
-        // -----------------------------------------------------------------------
-        // DELETE — DELETE /articles/{continent}/{id}
-        // -----------------------------------------------------------------------
         [HttpDelete("{continent}/{id}")]
         public async Task<IActionResult> DeleteArticle(string continent, int id)
         {
             if (!Continents.All.Contains(continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            var context = _router.GetContextFor(continent);
+            using var context = _router.CreateContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)

@@ -12,21 +12,24 @@ namespace CommentService.Controllers
     {
         private readonly CommentDbContext _context;
         private readonly ProfanityClient _profanityClient;
+        private readonly CommentCacheService _cache;
+        private readonly CommentCacheMetrics _metrics;
         private readonly ILogger<CommentsController> _logger;
 
-        public CommentsController(CommentDbContext context, ProfanityClient profanityClient, ILogger<CommentsController> logger)
+        public CommentsController(
+            CommentDbContext context,
+            ProfanityClient profanityClient,
+            CommentCacheService cache,
+            CommentCacheMetrics metrics,
+            ILogger<CommentsController> logger)
         {
-            _context = context;
+            _context         = context;
             _profanityClient = profanityClient;
-            _logger = logger;
+            _cache           = cache;
+            _metrics         = metrics;
+            _logger          = logger;
         }
 
-        // -----------------------------------------------------------------------
-        // CREATE — POST /comments
-        // 1. Send content to ProfanityService for filtering
-        // 2. If ProfanityService is UP  → save filtered content as "Approved"
-        // 3. If ProfanityService is DOWN → save original content as "PendingReview"
-        // -----------------------------------------------------------------------
         [HttpPost]
         public async Task<IActionResult> CreateComment([FromBody] CommentRequest request)
         {
@@ -51,6 +54,9 @@ namespace CommentService.Controllers
             _context.Comments.Add(comment);
             await _context.SaveChangesAsync();
 
+            try { await _cache.InvalidateAsync(request.ArticleId); }
+            catch (Exception ex) { _logger.LogWarning(ex, "CommentCache invalidation failed for articleId={id}", request.ArticleId); }
+
             if (filteredContent != null)
                 _logger.LogInformation("Comment created and approved with id={id}", comment.Id);
             else
@@ -59,9 +65,6 @@ namespace CommentService.Controllers
             return CreatedAtAction(nameof(GetComment), new { id = comment.Id }, comment);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ALL — GET /comments
-        // -----------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> GetAllComments()
         {
@@ -69,22 +72,37 @@ namespace CommentService.Controllers
             return Ok(comments);
         }
 
-        // -----------------------------------------------------------------------
-        // READ BY ARTICLE — GET /comments/article/{articleId}
-        // Get all comments for a specific article
-        // -----------------------------------------------------------------------
         [HttpGet("article/{articleId}")]
         public async Task<IActionResult> GetCommentsByArticle(int articleId)
         {
+            try
+            {
+                var cached = await _cache.GetAsync(articleId);
+                if (cached != null)
+                {
+                    _metrics.Hits.Inc();
+                    _logger.LogDebug("CommentCache HIT for articleId={id}", articleId);
+                    return Ok(cached);
+                }
+
+                _metrics.Misses.Inc();
+                _logger.LogDebug("CommentCache MISS for articleId={id}", articleId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "CommentCache unavailable, falling back to database");
+            }
+
             var comments = await _context.Comments
                 .Where(c => c.ArticleId == articleId)
                 .ToListAsync();
+
+            try { await _cache.SetAsync(articleId, comments); }
+            catch (Exception ex) { _logger.LogWarning(ex, "CommentCache set failed for articleId={id}", articleId); }
+
             return Ok(comments);
         }
 
-        // -----------------------------------------------------------------------
-        // READ ONE — GET /comments/{id}
-        // -----------------------------------------------------------------------
         [HttpGet("{id}")]
         public async Task<IActionResult> GetComment(int id)
         {
@@ -98,9 +116,6 @@ namespace CommentService.Controllers
             return Ok(comment);
         }
 
-        // -----------------------------------------------------------------------
-        // UPDATE — PUT /comments/{id}
-        // -----------------------------------------------------------------------
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateComment(int id, [FromBody] CommentRequest request)
         {
@@ -120,6 +135,9 @@ namespace CommentService.Controllers
 
             await _context.SaveChangesAsync();
 
+            try { await _cache.InvalidateAsync(comment.ArticleId); }
+            catch (Exception ex) { _logger.LogWarning(ex, "CommentCache invalidation failed for articleId={id}", comment.ArticleId); }
+
             if (filteredContent != null)
                 _logger.LogInformation("Comment updated and approved with id={id}", id);
             else
@@ -128,9 +146,6 @@ namespace CommentService.Controllers
             return Ok(comment);
         }
 
-        // -----------------------------------------------------------------------
-        // DELETE — DELETE /comments/{id}
-        // -----------------------------------------------------------------------
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteComment(int id)
         {
@@ -143,6 +158,9 @@ namespace CommentService.Controllers
 
             _context.Comments.Remove(comment);
             await _context.SaveChangesAsync();
+
+            try { await _cache.InvalidateAsync(comment.ArticleId); }
+            catch (Exception ex) { _logger.LogWarning(ex, "CommentCache invalidation failed for articleId={id}", comment.ArticleId); }
 
             _logger.LogInformation("Comment deleted with id={id}", id);
             return NoContent();
