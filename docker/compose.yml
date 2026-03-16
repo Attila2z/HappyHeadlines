@@ -1,45 +1,84 @@
 services:
 
-
   postgres-africa:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-africa:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-antarctica:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-antarctica:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-asia:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-asia:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-australia:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-australia:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-europe:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-europe:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-northamerica:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-northamerica:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-southamerica:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-southamerica:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres-global:
     image: postgres:16
     environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: articles }
     volumes: [ pgdata-global:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   app1:
     build: { context: ../src/ArticleService, dockerfile: Dockerfile }
@@ -54,7 +93,18 @@ services:
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
       Redis__ConnectionString:         "redis-article:6379"
-    depends_on: [ postgres-africa, postgres-antarctica, postgres-asia, postgres-australia, postgres-europe, postgres-northamerica, postgres-southamerica, postgres-global, redis-article ]
+      Zipkin__Endpoint:                "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      postgres-africa:       { condition: service_healthy }
+      postgres-antarctica:   { condition: service_healthy }
+      postgres-asia:         { condition: service_healthy }
+      postgres-australia:    { condition: service_healthy }
+      postgres-europe:       { condition: service_healthy }
+      postgres-northamerica: { condition: service_healthy }
+      postgres-southamerica: { condition: service_healthy }
+      postgres-global:       { condition: service_healthy }
+      redis-article:         { condition: service_healthy }
+      zipkin:                { condition: service_started }
 
   app2:
     build: { context: ../src/ArticleService, dockerfile: Dockerfile }
@@ -69,7 +119,18 @@ services:
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
       Redis__ConnectionString:         "redis-article:6379"
-    depends_on: [ postgres-africa, postgres-antarctica, postgres-asia, postgres-australia, postgres-europe, postgres-northamerica, postgres-southamerica, postgres-global, redis-article ]
+      Zipkin__Endpoint:                "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      postgres-africa:       { condition: service_healthy }
+      postgres-antarctica:   { condition: service_healthy }
+      postgres-asia:         { condition: service_healthy }
+      postgres-australia:    { condition: service_healthy }
+      postgres-europe:       { condition: service_healthy }
+      postgres-northamerica: { condition: service_healthy }
+      postgres-southamerica: { condition: service_healthy }
+      postgres-global:       { condition: service_healthy }
+      redis-article:         { condition: service_healthy }
+      zipkin:                { condition: service_started }
 
   app3:
     build: { context: ../src/ArticleService, dockerfile: Dockerfile }
@@ -84,53 +145,18 @@ services:
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
       Redis__ConnectionString:         "redis-article:6379"
-    depends_on: [ postgres-africa, postgres-antarctica, postgres-asia, postgres-australia, postgres-europe, postgres-northamerica, postgres-southamerica, postgres-global, redis-article ]
-
-
-  redis-article:
-    image: redis:7-alpine
-    restart: always
-    command: redis-server --save 60 1 --loglevel warning
-    volumes: [ redisdata-article:/data ]
-
-
-  postgres-profanity:
-    image: postgres:16
-    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: profanity }
-    volumes: [ pgdata-profanity:/var/lib/postgresql/data ]
-
-  profanityservice:
-    build: { context: ../src/ProfanityService, dockerfile: Dockerfile }
-    container_name: profanityservice
-    restart: always
-    depends_on: [ postgres-profanity ]
-
-
-  postgres-comments:
-    image: postgres:16
-    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: comments }
-    volumes: [ pgdata-comments:/var/lib/postgresql/data ]
-
-  commentservice:
-    build: { context: ../src/CommentService, dockerfile: Dockerfile }
-    container_name: commentservice
-    restart: always
-    environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres-comments;Port=5432;Database=comments;Username=postgres;Password=postgres"
-      ProfanityService__BaseUrl: "http://profanityservice:8080"
-      Redis__ConnectionString: "redis-comment:6379"
-    depends_on: [ postgres-comments, profanityservice, redis-comment ]
-    ports:
-      - "5001:8080"   
-
-
-  redis-comment:
-    image: redis:7-alpine
-    restart: always
-    command: redis-server --save 60 1 --loglevel warning
-    volumes: [ redisdata-comment:/data ]
-
-
+      Zipkin__Endpoint:                "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      postgres-africa:       { condition: service_healthy }
+      postgres-antarctica:   { condition: service_healthy }
+      postgres-asia:         { condition: service_healthy }
+      postgres-australia:    { condition: service_healthy }
+      postgres-europe:       { condition: service_healthy }
+      postgres-northamerica: { condition: service_healthy }
+      postgres-southamerica: { condition: service_healthy }
+      postgres-global:       { condition: service_healthy }
+      redis-article:         { condition: service_healthy }
+      zipkin:                { condition: service_started }
 
   nginx:
     image: nginx:alpine
@@ -142,61 +168,165 @@ services:
       - ./nginx:/etc/nginx/conf.d
     depends_on: [ app1, app2, app3 ]
 
-  # ELK STACK — Centralized Logging (Phase 4) — NOT REQUIRED for compulsory assignment
-  # Commented out to save resources. Services will still work without centralized logging.
 
-  # elasticsearch:
-  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-  #   container_name: elasticsearch
-  #   restart: always
-  #   environment:
-  #     - discovery.type=single-node
-  #     - xpack.security.enabled=false
-  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-  #   ports:
-  #     - "9200:9200"
-  #   volumes:
-  #     - esdata:/usr/share/elasticsearch/data
+  redis-article:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+    volumes: [ redisdata-article:/data ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  # logstash:
-  #   image: docker.elastic.co/logstash/logstash:8.11.0
-  #   container_name: logstash
-  #   restart: always
-  #   ports:
-  #     - "5000:5000/tcp"
-  #     - "5000:5000/udp"
-  #     - "9600:9600"
-  #   volumes:
-  #     - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
-  #     - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
-  #   environment:
-  #     - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
-  #   depends_on:
-  #     - elasticsearch
 
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:8.11.0
-  #   container_name: kibana
-  #   restart: always
-  #   ports:
-  #     - "5601:5601"
-  #   environment:
-  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-  #   depends_on:
-  #     - elasticsearch
+  postgres-profanity:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: profanity }
+    volumes: [ pgdata-profanity:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  # log-cleanup:
-  #   image: alpine:latest
-  #   container_name: log-cleanup
-  #   restart: always
-  #   depends_on:
-  #     - elasticsearch
-  #   entrypoint: |
-  #     /bin/sh -c "
-  #     apk add --no-cache dcron curl &&
-  #     echo '0 2 * * * curl -X DELETE http://elasticsearch:9200/logs-\$$(date -d 7 days ago +\\%Y.\\%m.\\%d) 2>/dev/null || true' | crontab - &&
-  #     crond -f
-  #     "
+  profanityservice:
+    build: { context: ../src/ProfanityService, dockerfile: Dockerfile }
+    container_name: profanityservice
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-profanity;Port=5432;Database=profanity;Username=postgres;Password=postgres"
+      Zipkin__Endpoint: "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      postgres-profanity: { condition: service_healthy }
+      zipkin:             { condition: service_started }
+
+
+  postgres-comments:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: comments }
+    volumes: [ pgdata-comments:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  commentservice:
+    build: { context: ../src/CommentService, dockerfile: Dockerfile }
+    container_name: commentservice
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-comments;Port=5432;Database=comments;Username=postgres;Password=postgres"
+      ProfanityService__BaseUrl: "http://profanityservice:8080"
+      Redis__ConnectionString: "redis-comment:6379"
+      Zipkin__Endpoint: "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      postgres-comments: { condition: service_healthy }
+      redis-comment:     { condition: service_healthy }
+      profanityservice:  { condition: service_started }
+      zipkin:            { condition: service_started }
+    ports:
+      - "5001:8080"
+
+
+  redis-comment:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+    volumes: [ redisdata-comment:/data ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+
+  postgres-drafts:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: drafts }
+    volumes: [ pgdata-drafts:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  draftservice:
+    build: { context: ../src/DraftService, dockerfile: Dockerfile }
+    container_name: draftservice
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-drafts;Port=5432;Database=drafts;Username=postgres;Password=postgres"
+      Zipkin__Endpoint: "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      postgres-drafts: { condition: service_healthy }
+      zipkin:          { condition: service_started }
+    ports:
+      - "5002:8080"
+
+
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: zipkin
+    restart: always
+    ports:
+      - "9411:9411"
+
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    restart: always
+    ports:
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    environment:
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    restart: always
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+
+  log-cleanup:
+    image: alpine:latest
+    container_name: log-cleanup
+    restart: always
+    depends_on:
+      - elasticsearch
+    entrypoint: |
+      /bin/sh -c "
+      apk add --no-cache dcron curl &&
+      echo '0 2 * * * curl -X DELETE http://elasticsearch:9200/logs-$$(date -d \"-7 days\" +\\%Y.\\%m.\\%d) 2>/dev/null || true' | crontab - &&
+      crond -f
+      "
 
 
   prometheus:
@@ -238,5 +368,6 @@ volumes:
   pgdata-comments:
   redisdata-article:
   redisdata-comment:
+  pgdata-drafts:
   grafanadata:
-  # esdata:
+  esdata:
