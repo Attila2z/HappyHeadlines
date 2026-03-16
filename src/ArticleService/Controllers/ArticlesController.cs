@@ -42,12 +42,14 @@ namespace ArticleService.Controllers
             if (!Continents.All.Contains(request.Continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            var contexts = _router.GetContextsForSaving(request.Continent);
+            var contexts = _router.CreateContextsForSaving(request.Continent);
 
             Article? savedArticle = null;
 
             foreach (var context in contexts)
             {
+                using var ctx = context;
+
                 var article = new Article
                 {
                     Title     = request.Title,
@@ -56,8 +58,8 @@ namespace ArticleService.Controllers
                     Continent = request.Continent
                 };
 
-                context.Articles.Add(article);
-                await context.SaveChangesAsync();
+                ctx.Articles.Add(article);
+                await ctx.SaveChangesAsync();
 
                 savedArticle ??= article;
                 _logger.LogInformation("Article created in {continent} database with id={id}", request.Continent, article.Id);
@@ -73,8 +75,9 @@ namespace ArticleService.Controllers
         {
             var allArticles = new List<Article>();
 
-            foreach (var context in _router.GetAllContexts())
+            foreach (var continent in _router.GetContinents())
             {
+                using var context = _router.CreateContextFor(continent);
                 var articles = await context.Articles.ToListAsync();
                 allArticles.AddRange(articles);
             }
@@ -110,7 +113,7 @@ namespace ArticleService.Controllers
                 _logger.LogWarning(ex, "ArticleCache unavailable, falling back to database");
             }
 
-            var context = _router.GetContextFor(continent);
+            using var context = _router.CreateContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)
@@ -136,7 +139,7 @@ namespace ArticleService.Controllers
             if (string.IsNullOrWhiteSpace(request.Author))
                 return BadRequest("Field 'author' is required.");
 
-            var context = _router.GetContextFor(continent);
+            using var context = _router.CreateContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)
@@ -158,7 +161,7 @@ namespace ArticleService.Controllers
             if (!Continents.All.Contains(continent))
                 return BadRequest($"Invalid continent. Valid values: {string.Join(", ", Continents.All)}");
 
-            var context = _router.GetContextFor(continent);
+            using var context = _router.CreateContextFor(continent);
             var article = await context.Articles.FindAsync(id);
 
             if (article == null)

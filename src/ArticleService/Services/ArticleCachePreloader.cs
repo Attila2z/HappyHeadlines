@@ -1,12 +1,13 @@
 using StackExchange.Redis;
 using ArticleService.Models;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace ArticleService.Services
 {
     public class ArticleCachePreloader : BackgroundService
     {
-        private readonly IServiceProvider _sp;
+        private readonly DatabaseRouter _router;
         private readonly IConnectionMultiplexer _redis;
         private readonly ILogger<ArticleCachePreloader> _logger;
 
@@ -15,11 +16,11 @@ namespace ArticleService.Services
         private static readonly TimeSpan CacheTtl        = TimeSpan.FromDays(15);
 
         public ArticleCachePreloader(
-            IServiceProvider sp,
+            DatabaseRouter router,
             IConnectionMultiplexer redis,
             ILogger<ArticleCachePreloader> logger)
         {
-            _sp     = sp;
+            _router = router;
             _redis  = redis;
             _logger = logger;
         }
@@ -47,14 +48,15 @@ namespace ArticleService.Services
         {
             var cutoff  = DateTime.UtcNow.Subtract(ArticleWindow);
             var db      = _redis.GetDatabase();
-            var router  = _sp.GetRequiredService<DatabaseRouter>();
             int loaded  = 0;
 
-            foreach (var context in router.GetAllContexts())
+            foreach (var continent in _router.GetContinents())
             {
-                var recent = context.Articles
+                using var context = _router.CreateContextFor(continent);
+
+                var recent = await context.Articles
                     .Where(a => a.CreatedAt >= cutoff)
-                    .ToList();
+                    .ToListAsync(ct);
 
                 foreach (var article in recent)
                 {

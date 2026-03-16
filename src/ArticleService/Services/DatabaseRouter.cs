@@ -6,11 +6,11 @@ namespace ArticleService.Services
 {
     public class DatabaseRouter
     {
-        private readonly Dictionary<string, ArticleDbContext> _contexts;
+        private readonly Dictionary<string, DbContextOptions<ArticleDbContext>> _options;
 
         public DatabaseRouter(IConfiguration config)
         {
-            _contexts= new Dictionary<string, ArticleDbContext>();
+            _options = new Dictionary<string, DbContextOptions<ArticleDbContext>>();
 
             foreach (var continent in Continents.All)
             {
@@ -23,35 +23,33 @@ namespace ArticleService.Services
                     .UseNpgsql(connectionString)
                     .Options;
 
-                _contexts[continent] = new ArticleDbContext(options);
+                _options[continent] = options;
             }
         }
 
-        public ArticleDbContext GetContextFor(string continent)
+        public ArticleDbContext CreateContextFor(string continent)
         {
-            if (!_contexts.ContainsKey(continent))
+            if (!_options.ContainsKey(continent))
                 throw new ArgumentException($"Unknown continent: {continent}");
 
-            return _contexts[continent];
+            return new ArticleDbContext(_options[continent]);
         }
 
-        public List<ArticleDbContext> GetAllContexts()
-        {
-            return _contexts.Values.ToList();
-        }
+        public IReadOnlyList<string> GetContinents() => _options.Keys.ToList();
 
-        public List<ArticleDbContext> GetContextsForSaving(string continent)
+        public List<ArticleDbContext> CreateContextsForSaving(string continent)
         {
             if (continent == Continents.Global)
-                return GetAllContexts();
+                return _options.Values.Select(opts => new ArticleDbContext(opts)).ToList();
 
-            return new List<ArticleDbContext> { GetContextFor(continent) };
+            return new List<ArticleDbContext> { CreateContextFor(continent) };
         }
 
         public void MigrateAll()
         {
-            foreach (var (continent, context) in _contexts)
+            foreach (var (_, opts) in _options)
             {
+                using var context = new ArticleDbContext(opts);
                 context.Database.Migrate();
             }
         }
