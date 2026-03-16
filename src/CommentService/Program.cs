@@ -2,35 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using CommentService.Data;
 using CommentService.Services;
 using Prometheus;
-using Serilog;
-using Serilog.Formatting.Compact;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, configuration) =>
-{
-    configuration
-        .MinimumLevel.Debug()
-        .Enrich.WithProperty("service", "CommentService")
-        .Enrich.FromLogContext()
-        .Enrich.WithMachineName()
-        .WriteTo.Console(new CompactJsonFormatter())
-        .WriteTo.Http(
-            "http://logstash:5000",
-            queueLimitBytes: 1024 * 1024,
-            textFormatter: new CompactJsonFormatter(),
-            period: TimeSpan.FromSeconds(5)
-        );
-});
-
-// Register database
 builder.Services.AddDbContext<CommentDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
-// Register ProfanityClient with HttpClient
-// The URL of ProfanityService comes from appsettings.json
 builder.Services.AddHttpClient<ProfanityClient>(client =>
 {
     client.BaseAddress = new Uri(
@@ -39,12 +18,10 @@ builder.Services.AddHttpClient<ProfanityClient>(client =>
     );
 });
 
-// Redis connection for the comment cache
 var redisConn = builder.Configuration["Redis:ConnectionString"] ?? "redis-comment:6379";
 builder.Services.AddSingleton<IConnectionMultiplexer>(
-    ConnectionMultiplexer.Connect(redisConn));
+    ConnectionMultiplexer.Connect(redisConn + ",abortConnect=false"));
 
-// Comment cache (LRU, 30 articles) and Prometheus metrics
 builder.Services.AddSingleton<CommentCacheService>();
 builder.Services.AddSingleton<CommentCacheMetrics>();
 
@@ -64,7 +41,6 @@ using (var scope = app.Services.CreateScope())
 app.UseSwagger();
 app.UseSwaggerUI();
 
-// Expose /metrics for Prometheus scraping
 app.UseMetricServer();
 app.UseHttpMetrics();
 
