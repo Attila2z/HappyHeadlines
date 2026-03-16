@@ -1,26 +1,27 @@
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using ProfanityService.Data;
-// using Serilog;
-// using Serilog.Formatting.Compact;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Centralized logging (Phase 4) — Commented out for compulsory assignment
-// builder.Host.UseSerilog((context, configuration) =>
-// {
-//     configuration
-//         .MinimumLevel.Debug()
-//         .Enrich.WithProperty("service", "ProfanityService")
-//         .Enrich.FromLogContext()
-//         .Enrich.WithMachineName()
-//         .WriteTo.Console(new CompactJsonFormatter())
-//         .WriteTo.Http(
-//             "http://logstash:5000",
-//             queueLimitBytes: 1024 * 1024,
-//             textFormatter: new CompactJsonFormatter(),
-//             period: TimeSpan.FromSeconds(5)
-//         );
-// });
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .MinimumLevel.Debug()
+        .Enrich.WithProperty("service", "ProfanityService")
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .WriteTo.Console(new CompactJsonFormatter())
+        .WriteTo.Http(
+            "http://logstash:5000",
+            queueLimitBytes: 1024 * 1024,
+            textFormatter: new CompactJsonFormatter(),
+            period: TimeSpan.FromSeconds(5)
+        );
+});
 
 builder.Services.AddDbContext<ProfanityDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
@@ -29,6 +30,21 @@ builder.Services.AddDbContext<ProfanityDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("ProfanityService"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddZipkinExporter(opt =>
+            {
+                opt.Endpoint = new Uri(
+                    builder.Configuration["Zipkin:Endpoint"]
+                        ?? "http://zipkin:9411/api/v2/spans");
+            });
+    });
 
 var app = builder.Build();
 

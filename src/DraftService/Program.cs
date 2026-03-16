@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using DraftService.Data;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +30,21 @@ builder.Services.AddDbContext<DraftDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("DraftService"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddZipkinExporter(opt =>
+            {
+                opt.Endpoint = new Uri(
+                    builder.Configuration["Zipkin:Endpoint"]
+                        ?? "http://zipkin:9411/api/v2/spans");
+            });
+    });
 
 var app = builder.Build();
 

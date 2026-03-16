@@ -2,19 +2,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy both DraftService and Shared project files
-COPY DraftService/DraftService.csproj ./DraftService/
-COPY Shared/Shared.csproj ./Shared/
+COPY *.csproj ./
+RUN dotnet restore
 
-# Restore dependencies for both projects
-RUN dotnet restore DraftService/DraftService.csproj
-
-# Copy all source files
-COPY DraftService/ ./DraftService/
-COPY Shared/ ./Shared/
-
-# Build and publish
-WORKDIR /src/DraftService
+COPY . .
 RUN dotnet publish -c Release -o /app/publish
 
 # Stage 2: Run

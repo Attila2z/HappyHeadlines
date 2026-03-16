@@ -1,0 +1,33 @@
+## .NET / C# build artifacts
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.swp
+*~
+
+## NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+.nuget/
+
+## Roslyn / Rider / VS Code
+.idea/
+.vscode/
+*.DotSettings.user
+
+## Runtime / OS
+[Dd]esktop.ini
+.DS_Store
+Thumbs.db
+
+## Docker
+docker-compose.override.yml
+
+## Logs
+*.log
+logs/
