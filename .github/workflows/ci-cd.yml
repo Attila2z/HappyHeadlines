@@ -1,0 +1,123 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        service:
+          - ArticleService
+          - CommentService
+          - DraftService
+          - ProfanityService
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ matrix.service }}-${{ hashFiles(format('src/{0}/**/*.csproj', matrix.service)) }}
+          restore-keys: nuget-${{ matrix.service }}-
+
+      - name: Restore
+        run: dotnet restore src/${{ matrix.service }}
+
+      - name: Build
+        run: dotnet build src/${{ matrix.service }} --no-restore --configuration Release
+
+  docker:
+    name: Docker — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - service: ArticleService
+            image: articleservice
+          - service: CommentService
+            image: commentservice
+          - service: DraftService
+            image: draftservice
+          - service: ProfanityService
+            image: profanityservice
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Lowercase repository owner
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: src/${{ matrix.service }}
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/happyheadlines-${{ matrix.image }}:latest
+            ghcr.io/${{ env.OWNER_LC }}/happyheadlines-${{ matrix.image }}:${{ github.sha }}
+          # Layer cache scoped per service — speeds up re-builds when only one service changes
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Stage 3 — Deploy (SSH into server and restart containers)
+  # Requires repository secret:  DEPLOY_SSH_KEY  (private key)
+  #                               DEPLOY_HOST     (server IP or hostname)
+  #                               DEPLOY_USER     (SSH username)
+  # ─────────────────────────────────────────────────────────────
+  # deploy:
+  #   name: Deploy to server
+  #   runs-on: ubuntu-latest
+  #   needs: docker
+  #   environment: production
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Deploy via SSH
+  #       uses: appleboy/ssh-action@v1
+  #       with:
+  #         host: ${{ secrets.DEPLOY_HOST }}
+  #         username: ${{ secrets.DEPLOY_USER }}
+  #         key: ${{ secrets.DEPLOY_SSH_KEY }}
+  #         script: |
+  #           cd /opt/happyheadlines/docker
+  #           docker compose pull
+  #           docker compose up -d --remove-orphans
+  #
+  #     - name: Smoke test — ArticleService
+  #       run: |
+  #         sleep 15
+  #         curl --fail http://${{ secrets.DEPLOY_HOST }}/articles || exit 1
+  #
+  #     - name: Smoke test — CommentService
+  #       run: curl --fail http://${{ secrets.DEPLOY_HOST }}:5001/comments || exit 1
+  #
+  #     - name: Smoke test — DraftService
+  #       run: curl --fail http://${{ secrets.DEPLOY_HOST }}:5002/api/drafts || exit 1
