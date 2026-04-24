@@ -15,3 +15,13 @@ scrape_configs:
     static_configs:
       - targets:
           - 'commentservice:8080'
+
+  - job_name: 'subscriber-service'
+    static_configs:
+      - targets:
+          - 'subscriberservice:8080'
+
+  - job_name: 'newsletter-service'
+    static_configs:
+      - targets:
+          - 'newsletterservice:8080'

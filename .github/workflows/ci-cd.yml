@@ -17,6 +17,8 @@ jobs:
           - CommentService
           - DraftService
           - ProfanityService
+          - SubscriberService
+          - NewsletterService
 
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +59,10 @@ jobs:
             image: draftservice
           - service: ProfanityService
             image: profanityservice
+          - service: SubscriberService
+            image: subscriberservice
+          - service: NewsletterService
+            image: newsletterservice
 
     steps:
       - uses: actions/checkout@v4
