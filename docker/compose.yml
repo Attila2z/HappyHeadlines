@@ -329,6 +329,72 @@ services:
       "
 
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes: [ rabbitmqdata:/var/lib/rabbitmq ]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+
+  postgres-subscribers:
+    image: postgres:16
+    environment: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: subscribers }
+    volumes: [ pgdata-subscribers:/var/lib/postgresql/data ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  subscriberservice:
+    build: { context: ../src/SubscriberService, dockerfile: Dockerfile }
+    container_name: subscriberservice
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres-subscribers;Port=5432;Database=subscribers;Username=postgres;Password=postgres"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+      Zipkin__Endpoint: "http://zipkin:9411/api/v2/spans"
+    volumes:
+      - ./featureflags/subscriberservice.json:/app/featureflags.json
+    depends_on:
+      postgres-subscribers: { condition: service_healthy }
+      rabbitmq:             { condition: service_healthy }
+      zipkin:               { condition: service_started }
+    ports:
+      - "5003:8080"
+
+  newsletterservice:
+    build: { context: ../src/NewsletterService, dockerfile: Dockerfile }
+    container_name: newsletterservice
+    restart: always
+    environment:
+      SubscriberService__BaseUrl: "http://subscriberservice:8080"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+      Zipkin__Endpoint: "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+      zipkin:   { condition: service_started }
+    ports:
+      - "5004:8080"
+
+
   prometheus:
     image: prom/prometheus:v2.51.2
     container_name: prometheus
@@ -337,7 +403,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on: [ app1, app2, app3, commentservice ]
+    depends_on: [ app1, app2, app3, commentservice, subscriberservice, newsletterservice ]
 
 
   grafana:
@@ -369,5 +435,7 @@ volumes:
   redisdata-article:
   redisdata-comment:
   pgdata-drafts:
+  pgdata-subscribers:
+  rabbitmqdata:
   grafanadata:
   esdata:
