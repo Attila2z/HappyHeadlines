@@ -13,4 +13,13 @@ namespace NewsletterService.Models
         public string   Name         { get; set; } = string.Empty;
         public DateTime SubscribedAt { get; set; }
     }
+
+    public class ArticleDto
+    {
+        public int      Id        { get; set; }
+        public string   Title     { get; set; } = string.Empty;
+        public string   Author    { get; set; } = string.Empty;
+        public string   Continent { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
 }

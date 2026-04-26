@@ -9,11 +9,16 @@ namespace NewsletterService.Controllers
     public class NewsletterController : ControllerBase
     {
         private readonly SubscriberClient _subscriberClient;
+        private readonly ArticleClient _articleClient;
         private readonly ILogger<NewsletterController> _logger;
 
-        public NewsletterController(SubscriberClient subscriberClient, ILogger<NewsletterController> logger)
+        public NewsletterController(
+            SubscriberClient subscriberClient,
+            ArticleClient articleClient,
+            ILogger<NewsletterController> logger)
         {
             _subscriberClient = subscriberClient;
+            _articleClient    = articleClient;
             _logger           = logger;
         }
 
@@ -33,6 +38,13 @@ namespace NewsletterService.Controllers
             if (subscribers.Count == 0)
                 return Ok(new { message = "No subscribers to send to.", sent = 0 });
 
+            var recentArticles = await _articleClient.GetRecentArticlesAsync(limit: 5);
+
+            if (recentArticles != null && recentArticles.Count > 0)
+                _logger.LogInformation(
+                    "Newsletter '{subject}' will include {count} recent article highlight(s)",
+                    request.Subject, recentArticles.Count);
+
             foreach (var sub in subscribers)
                 _logger.LogInformation(
                     "Sending newsletter '{subject}' to {name} <{email}>",
@@ -42,7 +54,12 @@ namespace NewsletterService.Controllers
                 "Newsletter '{subject}' dispatched to {count} subscriber(s)",
                 request.Subject, subscribers.Count);
 
-            return Ok(new { message = "Newsletter sent.", sent = subscribers.Count });
+            return Ok(new
+            {
+                message  = "Newsletter sent.",
+                sent     = subscribers.Count,
+                articles = recentArticles?.Count ?? 0
+            });
         }
     }
 }

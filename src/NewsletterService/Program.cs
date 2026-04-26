@@ -31,6 +31,14 @@ builder.Services.AddHttpClient<SubscriberClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(5);
 });
 
+builder.Services.AddHttpClient<ArticleClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ArticleService:BaseUrl"]
+            ?? "http://nginx:80");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 builder.Services.AddHostedService<WelcomeMailConsumer>();
 
 builder.Services.AddControllers();
