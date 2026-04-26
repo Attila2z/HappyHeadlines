@@ -93,6 +93,10 @@ services:
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
       Redis__ConnectionString:         "redis-article:6379"
+      RabbitMQ__Host:                  rabbitmq
+      RabbitMQ__Port:                  "5672"
+      RabbitMQ__Username:              guest
+      RabbitMQ__Password:              guest
       Zipkin__Endpoint:                "http://zipkin:9411/api/v2/spans"
     depends_on:
       postgres-africa:       { condition: service_healthy }
@@ -104,6 +108,7 @@ services:
       postgres-southamerica: { condition: service_healthy }
       postgres-global:       { condition: service_healthy }
       redis-article:         { condition: service_healthy }
+      rabbitmq:              { condition: service_healthy }
       zipkin:                { condition: service_started }
 
   app2:
@@ -119,6 +124,10 @@ services:
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
       Redis__ConnectionString:         "redis-article:6379"
+      RabbitMQ__Host:                  rabbitmq
+      RabbitMQ__Port:                  "5672"
+      RabbitMQ__Username:              guest
+      RabbitMQ__Password:              guest
       Zipkin__Endpoint:                "http://zipkin:9411/api/v2/spans"
     depends_on:
       postgres-africa:       { condition: service_healthy }
@@ -130,6 +139,7 @@ services:
       postgres-southamerica: { condition: service_healthy }
       postgres-global:       { condition: service_healthy }
       redis-article:         { condition: service_healthy }
+      rabbitmq:              { condition: service_healthy }
       zipkin:                { condition: service_started }
 
   app3:
@@ -145,6 +155,10 @@ services:
       ConnectionStrings__SouthAmerica: "Host=postgres-southamerica;Port=5432;Database=articles;Username=postgres;Password=postgres"
       ConnectionStrings__Global:       "Host=postgres-global;Port=5432;Database=articles;Username=postgres;Password=postgres"
       Redis__ConnectionString:         "redis-article:6379"
+      RabbitMQ__Host:                  rabbitmq
+      RabbitMQ__Port:                  "5672"
+      RabbitMQ__Username:              guest
+      RabbitMQ__Password:              guest
       Zipkin__Endpoint:                "http://zipkin:9411/api/v2/spans"
     depends_on:
       postgres-africa:       { condition: service_healthy }
@@ -156,6 +170,7 @@ services:
       postgres-southamerica: { condition: service_healthy }
       postgres-global:       { condition: service_healthy }
       redis-article:         { condition: service_healthy }
+      rabbitmq:              { condition: service_healthy }
       zipkin:                { condition: service_started }
 
   nginx:
@@ -383,6 +398,7 @@ services:
     restart: always
     environment:
       SubscriberService__BaseUrl: "http://subscriberservice:8080"
+      ArticleService__BaseUrl:    "http://nginx:80"
       RabbitMQ__Host: rabbitmq
       RabbitMQ__Port: "5672"
       RabbitMQ__Username: guest
@@ -394,6 +410,24 @@ services:
     ports:
       - "5004:8080"
 
+  publisherservice:
+    build: { context: ../src/PublisherService, dockerfile: Dockerfile }
+    container_name: publisherservice
+    restart: always
+    environment:
+      ProfanityService__BaseUrl: "http://profanityservice:8080"
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+      Zipkin__Endpoint: "http://zipkin:9411/api/v2/spans"
+    depends_on:
+      profanityservice: { condition: service_started }
+      rabbitmq:         { condition: service_healthy }
+      zipkin:           { condition: service_started }
+    ports:
+      - "5005:8080"
+
 
   prometheus:
     image: prom/prometheus:v2.51.2
@@ -403,7 +437,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on: [ app1, app2, app3, commentservice, subscriberservice, newsletterservice ]
+    depends_on: [ app1, app2, app3, commentservice, subscriberservice, newsletterservice, publisherservice ]
 
 
   grafana:
