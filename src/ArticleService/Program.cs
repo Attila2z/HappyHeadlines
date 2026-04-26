@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(
 
 builder.Services.AddSingleton<ArticleCacheMetrics>();
 builder.Services.AddHostedService<ArticleCachePreloader>();
+builder.Services.AddHostedService<ArticleQueueConsumer>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

@@ -85,6 +85,32 @@ namespace ArticleService.Controllers
             return Ok(allArticles);
         }
 
+        [HttpGet("recent")]
+        public async Task<IActionResult> GetRecentArticles([FromQuery] int limit = 10)
+        {
+            if (limit is < 1 or > 100)
+                return BadRequest("'limit' must be between 1 and 100.");
+
+            var allArticles = new List<Article>();
+
+            foreach (var continent in _router.GetContinents())
+            {
+                using var context = _router.CreateContextFor(continent);
+                var articles = await context.Articles
+                    .OrderByDescending(a => a.CreatedAt)
+                    .Take(limit)
+                    .ToListAsync();
+                allArticles.AddRange(articles);
+            }
+
+            var recent = allArticles
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(limit)
+                .ToList();
+
+            return Ok(recent);
+        }
+
         [HttpGet("{continent}/{id}")]
         public async Task<IActionResult> GetArticle(string continent, int id)
         {
